@@ -1,0 +1,11 @@
+[NanoDet][01-07 12:02:10]INFO: Setting up data...
+[NanoDet][01-07 12:02:10]INFO: Creating model...
+[NanoDet][01-07 12:02:10]INFO: Weight Averaging is enabled
+[NanoDet][01-07 12:02:12]INFO: Train|Epoch1/300|Iter0(1/183)| mem:3.03G| lr:1.00e-07| loss_qfl:0.7310| loss_bbox:1.0101| loss_dfl:0.5196| aux_loss_qfl:0.7045| aux_loss_bbox:1.0170| aux_loss_dfl:0.5298| 
+[NanoDet][01-07 12:02:33]INFO: Train|Epoch1/300|Iter50(51/183)| mem:3.41G| lr:1.00e-04| loss_qfl:1.1301| loss_bbox:0.8907| loss_dfl:0.5058| aux_loss_qfl:0.7037| aux_loss_bbox:0.7369| aux_loss_dfl:0.3992| 
+[NanoDet][01-07 12:02:52]INFO: Train|Epoch1/300|Iter100(101/183)| mem:3.41G| lr:2.00e-04| loss_qfl:0.7790| loss_bbox:0.7679| loss_dfl:0.3904| aux_loss_qfl:0.5797| aux_loss_bbox:0.6839| aux_loss_dfl:0.3323| 
+[NanoDet][01-07 12:03:12]INFO: Train|Epoch1/300|Iter150(151/183)| mem:3.41G| lr:3.00e-04| loss_qfl:0.6867| loss_bbox:0.7208| loss_dfl:0.3951| aux_loss_qfl:0.5879| aux_loss_bbox:0.5855| aux_loss_dfl:0.3246| 
+[NanoDet][01-07 12:03:32]INFO: Train|Epoch2/300|Iter200(18/183)| mem:3.41G| lr:4.00e-04| loss_qfl:0.6714| loss_bbox:0.6802| loss_dfl:0.3821| aux_loss_qfl:0.6679| aux_loss_bbox:0.5048| aux_loss_dfl:0.3031| 
+[NanoDet][01-07 12:03:51]INFO: Train|Epoch2/300|Iter250(68/183)| mem:3.41G| lr:5.00e-04| loss_qfl:0.6795| loss_bbox:0.4920| loss_dfl:0.3479| aux_loss_qfl:0.6519| aux_loss_bbox:0.4042| aux_loss_dfl:0.2740| 
+[NanoDet][01-07 12:04:12]INFO: Train|Epoch2/300|Iter300(118/183)| mem:3.41G| lr:6.00e-04| loss_qfl:0.6739| loss_bbox:0.5543| loss_dfl:0.3326| aux_loss_qfl:0.5513| aux_loss_bbox:0.4418| aux_loss_dfl:0.2599| 
+[NanoDet][01-07 12:04:31]INFO: Train|Epoch2/300|Iter350(168/183)| mem:3.41G| lr:7.00e-04| loss_qfl:0.6364| loss_bbox:0.4710| loss_dfl:0.3053| aux_loss_qfl:0.7056| aux_loss_bbox:0.3770| aux_loss_dfl:0.2473| 

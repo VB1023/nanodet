@@ -101,6 +101,7 @@ def main():
     logger = Logger(local_rank, use_tensorboard=False)
     predictor = Predictor(cfg, args.model, logger, device="cuda:0")
     logger.log('Press "Esc", "q" or "Q" to exit.')
+
     current_time = time.localtime()
     if args.demo == "image":
         if os.path.isdir(args.path):
@@ -118,8 +119,10 @@ def main():
                 mkdir(local_rank, save_folder)
                 save_file_name = os.path.join(save_folder, os.path.basename(image_name))
                 cv2.imwrite(save_file_name, result_image)
-            ch = cv2.waitKey(0)
-            if ch == 27 or ch == ord("q") or ch == ord("Q"):
+            cv2.imshow("Result", result_image)
+            ch = cv2.waitKey(0)  # Wait for a key press
+            # Check if the window is closed (window close button) or keypress (Esc, q, Q)
+            if cv2.getWindowProperty("Result", cv2.WND_PROP_VISIBLE) < 1 or ch == 27 or ch == ord("q") or ch == ord("Q"):
                 break
     elif args.demo == "video" or args.demo == "webcam":
         cap = cv2.VideoCapture(args.path if args.demo == "video" else args.camid)
@@ -146,8 +149,10 @@ def main():
                 result_frame = predictor.visualize(res[0], meta, cfg.class_names, 0.35)
                 if args.save_result:
                     vid_writer.write(result_frame)
+                cv2.imshow("Result", result_frame)
                 ch = cv2.waitKey(1)
-                if ch == 27 or ch == ord("q") or ch == ord("Q"):
+                # Check if the window is closed (window close button) or keypress (Esc, q, Q)
+                if cv2.getWindowProperty("Result", cv2.WND_PROP_VISIBLE) < 1 or ch == 27 or ch == ord("q") or ch == ord("Q"):
                     break
             else:
                 break
