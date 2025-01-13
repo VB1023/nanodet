@@ -5,7 +5,7 @@ numpy
 omegaconf>=2.0.1
 onnx
 onnxsim==0.4.36
-opencv-python
+opencv==4.7.0
 pyaml
 pycocotools
 pytorch-lightning>=1.9.0,<2.0.0
