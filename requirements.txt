@@ -5,7 +5,7 @@ numpy
 omegaconf>=2.0.1
 onnx
 onnx-simplifier
-opencv-python
+opencv-python-headless
 pyaml
 pycocotools
 pytorch-lightning>=1.9.0,<2.0.0
