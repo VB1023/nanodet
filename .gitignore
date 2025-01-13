@@ -117,3 +117,4 @@ work_dirs/
 *.pth
 *.py~
 *.sh~
+cuda-repo-ubuntu1804-11-8-local_11.8.0-520.61.05-1_amd64-004.deb
