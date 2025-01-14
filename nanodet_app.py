@@ -25,7 +25,7 @@ class Predictor(object):
             from nanodet.model.backbone.repvgg import repvgg_det_model_convert
 
             model = repvgg_det_model_convert(model, deploy_model)
-        self.model = model.to(device).eval()
+        self.model = model.to(torch.device("cpu")).eval()
         self.pipeline = Pipeline(cfg.data.val.pipeline, cfg.data.val.keep_ratio)
 
     def inference(self, img):
@@ -77,7 +77,7 @@ def run_inference_for_image(config_path, model_path, image_path, save_result=Fal
     logger = Logger(local_rank=0, use_tensorboard=False)
 
     # Initialize the predictor (the model)
-    predictor = Predictor(cfg, model_path, logger, device="cuda:0")
+    predictor = Predictor(cfg, model_path, logger, device="cpu")
     
     # Get the image list (this can be a single image or a folder)
     image_names = get_image_list(image_path)

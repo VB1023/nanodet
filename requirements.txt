@@ -16,3 +16,4 @@ torch>=2.0
 torchmetrics
 torchvision
 tqdm
+streamlit
