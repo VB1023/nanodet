@@ -115,18 +115,25 @@ def main():
     model_path = 'workspace/nanodet-plus-m_416/model_best/model_best.ckpt'  # Path to your trained model weights
     save_dir = './inference_results'  # Directory where the processed image will be saved
 
-    # Image upload
+    # Image upload or camera input
     image_file = st.file_uploader("Upload image file", type=["jpg", "jpeg", "png", "bmp", "webp"])
+    camera_image = st.camera_input("Take a picture")
 
     if image_file is not None:
         # Save the uploaded image temporarily
         image_path = "./temp_image.jpg"
         with open(image_path, "wb") as f:
             f.write(image_file.read())
+    elif camera_image is not None:
+        # Save the captured image temporarily
+        image_path = "./temp_camera_image.jpg"
+        with open(image_path, "wb") as f:
+            f.write(camera_image.getbuffer())
 
-        # Optionally, save the results
-        save_result = st.checkbox("Save Inference Results", value=False)
+    # Optionally, save the results
+    save_result = st.checkbox("Save Inference Results", value=False)
 
+    if 'image_path' in locals():
         # Run inference
         with st.spinner("Running inference..."):
             result_images = run_inference_for_image(config_path, model_path, image_path, save_result, save_dir)
