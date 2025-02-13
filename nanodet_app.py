@@ -51,8 +51,8 @@ class Predictor:
         result_img = self.model.head.show_result(
             meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
         )
-        return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
-
+        #return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
+        return result_img
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
