@@ -10,8 +10,7 @@ from nanodet.model.arch import build_model
 from nanodet.util import Logger, cfg, load_config, load_model_weight
 from nanodet.util.path import mkdir
 
-# Define the Predictor class
-class Predictor(object):
+class Predictor:
     def __init__(self, cfg, model_path, logger, device="cuda:0"):
         self.cfg = cfg
         self.device = device
@@ -23,7 +22,6 @@ class Predictor(object):
             deploy_config.arch.backbone.update({"deploy": True})
             deploy_model = build_model(deploy_config)
             from nanodet.model.backbone.repvgg import repvgg_det_model_convert
-
             model = repvgg_det_model_convert(model, deploy_model)
         self.model = model.to(torch.device("cpu")).eval()
         self.pipeline = Pipeline(cfg.data.val.pipeline, cfg.data.val.keep_ratio)
@@ -33,6 +31,7 @@ class Predictor(object):
         if isinstance(img, str):
             img_info["file_name"] = os.path.basename(img)
             img = cv2.imread(img)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert to RGB
         else:
             img_info["file_name"] = None
 
@@ -54,7 +53,6 @@ class Predictor(object):
         )
         return result_img
 
-
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
@@ -68,79 +66,55 @@ def get_image_list(path):
         image_names.append(path)
     return image_names
 
-
 def run_inference_for_image(config_path, model_path, image_path, save_result=False, save_dir='./inference_results'):
-    # Load the configuration file
     load_config(cfg, config_path)
-
-    # Initialize logger (can be a placeholder since we're not using TensorBoard in Jupyter)
     logger = Logger(local_rank=0, use_tensorboard=False)
-
-    # Initialize the predictor (the model)
     predictor = Predictor(cfg, model_path, logger, device="cpu")
-    
-    # Get the image list (this can be a single image or a folder)
     image_names = get_image_list(image_path)
     image_names.sort()
 
-    # Create a directory to save the results
     current_time = time.localtime()
     if save_result:
         save_folder = os.path.join(save_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time))
         mkdir(local_rank=0, path=save_folder)
 
-    # Process each image
     result_images = []
     for image_name in image_names:
         meta, res = predictor.inference(image_name)
         result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)
-
-        # Save the result image if specified
+        result_image = cv2.cvtColor(result_image, cv2.COLOR_BGR2RGB)  # Convert to RGB before displaying
         if save_result:
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
-            cv2.imwrite(save_file_name, result_image)
-
-        # Append the result image to the list to display later
+            cv2.imwrite(save_file_name, cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR))
         result_images.append(result_image)
 
     return result_images
 
-
-# Streamlit UI
 def main():
     st.title("Car Damage Assessment")
+    config_path = 'config/nanodet-plus-m_416-yolo.yml'
+    model_path = 'workspace/nanodet-plus-m_416/model_best/model_best.ckpt'
+    save_dir = './inference_results'
 
-    # Define paths to config, model, and image
-    config_path = 'config/nanodet-plus-m_416-yolo.yml'  # Path to your model config file
-    model_path = 'workspace/nanodet-plus-m_416/model_best/model_best.ckpt'  # Path to your trained model weights
-    save_dir = './inference_results'  # Directory where the processed image will be saved
-
-    # Image upload or camera input
     image_file = st.file_uploader("Upload image file", type=["jpg", "jpeg", "png", "bmp", "webp"])
     camera_image = st.camera_input("Take a picture")
 
+    image_path = None
     if image_file is not None:
-        # Save the uploaded image temporarily
         image_path = "./temp_image.jpg"
         with open(image_path, "wb") as f:
             f.write(image_file.read())
     elif camera_image is not None:
-        # Save the captured image temporarily
         image_path = "./temp_camera_image.jpg"
         with open(image_path, "wb") as f:
             f.write(camera_image.getbuffer())
 
-    # Optionally, save the results
     save_result = st.checkbox("Save Inference Results", value=False)
 
-    if 'image_path' in locals():
-        # Run inference
+    if image_path:
         with st.spinner("Running inference..."):
             result_images = run_inference_for_image(config_path, model_path, image_path, save_result, save_dir)
-
-        # Display the result
         st.image(result_images[0], caption="Processed Image", use_column_width=True)
-
 
 if __name__ == "__main__":
     main()
