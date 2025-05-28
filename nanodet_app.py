@@ -53,89 +53,141 @@ class Predictor:
         
         result_img = meta["raw_img"][0].copy()
         
-        # Debug: Print detection info
+        # Comprehensive debugging
+        print(f"=== DETECTION DEBUG INFO ===")
         print(f"Detection type: {type(dets)}")
+        print(f"Class names: {class_names}")
+        print(f"Score threshold: {score_thres}")
+        
         if hasattr(dets, '__len__'):
             print(f"Detection length: {len(dets)}")
+            
+        if isinstance(dets, (list, tuple)):
+            for i, item in enumerate(dets):
+                print(f"Item {i}: type={type(item)}, shape={getattr(item, 'shape', 'no shape')}")
+                if hasattr(item, 'shape') and len(item.shape) > 0:
+                    print(f"  Content sample: {item[:min(3, len(item))] if len(item) > 0 else 'empty'}")
         
         try:
-            # NanoDet typically returns detections as a list of arrays
-            # Each array contains [x1, y1, x2, y2, score, class_id]
-            if isinstance(dets, (list, tuple)) and len(dets) > 0:
-                detection_array = dets[0]  # Usually first element contains the detections
+            detections_found = False
+            
+            # Try multiple approaches to extract detections
+            detection_arrays = []
+            
+            # Approach 1: Direct array
+            if hasattr(dets, 'shape') and len(dets.shape) >= 2:
+                detection_arrays.append(dets)
+                print("Found direct detection array")
+            
+            # Approach 2: List/tuple of arrays
+            elif isinstance(dets, (list, tuple)):
+                for i, item in enumerate(dets):
+                    if hasattr(item, 'shape') and len(item.shape) >= 2:
+                        detection_arrays.append(item)
+                        print(f"Found detection array at index {i}")
+                    elif hasattr(item, '__len__') and len(item) > 0:
+                        # Convert to numpy if possible
+                        try:
+                            arr = np.array(item)
+                            if len(arr.shape) >= 2:
+                                detection_arrays.append(arr)
+                                print(f"Converted item {i} to detection array")
+                        except:
+                            pass
+            
+            # Process each detection array
+            for det_array in detection_arrays:
+                # Convert tensor to numpy if needed
+                if hasattr(det_array, 'cpu'):
+                    det_array = det_array.cpu().numpy()
+                elif hasattr(det_array, 'numpy'):
+                    det_array = det_array.numpy()
                 
-                # Convert to numpy array if needed
-                if hasattr(detection_array, 'cpu'):
-                    detection_array = detection_array.cpu().numpy()
-                elif hasattr(detection_array, 'numpy'):
-                    detection_array = detection_array.numpy()
+                print(f"Processing array with shape: {det_array.shape}")
                 
-                print(f"Detection array shape: {detection_array.shape if hasattr(detection_array, 'shape') else 'No shape'}")
-                
-                if hasattr(detection_array, 'shape') and len(detection_array.shape) >= 2:
-                    # Filter detections by score threshold
-                    if detection_array.shape[1] >= 5:  # Has at least bbox + score
-                        scores = detection_array[:, 4]
-                        valid_detections = detection_array[scores >= score_thres]
+                if len(det_array.shape) >= 2 and det_array.shape[1] >= 5:
+                    # Filter by score threshold
+                    scores = det_array[:, 4]
+                    valid_mask = scores >= score_thres
+                    valid_detections = det_array[valid_mask]
+                    
+                    print(f"Valid detections after filtering: {len(valid_detections)}")
+                    
+                    for j, detection in enumerate(valid_detections):
+                        detections_found = True
                         
-                        # Draw each valid detection
-                        for detection in valid_detections:
-                            x1, y1, x2, y2 = detection[:4].astype(int)
-                            score = detection[4]
-                            
-                            # Get class label
-                            if len(detection) > 5:
-                                class_id = int(detection[5])
-                            else:
-                                class_id = 0  # Default class
-                            
-                            # Ensure coordinates are within image bounds
-                            h, w = result_img.shape[:2]
-                            x1 = max(0, min(x1, w-1))
-                            y1 = max(0, min(y1, h-1))
-                            x2 = max(0, min(x2, w-1))
-                            y2 = max(0, min(y2, h-1))
-                            
-                            # Skip if invalid box
-                            if x2 <= x1 or y2 <= y1:
-                                continue
-                            
-                            # Draw bounding box
-                            cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            
-                            # Get class name
-                            if 0 <= class_id < len(class_names):
-                                class_name = class_names[class_id]
-                            else:
-                                class_name = "Damage"
-                            
-                            # Draw label background and text
-                            font = cv2.FONT_HERSHEY_SIMPLEX
-                            font_scale = 0.7
-                            thickness = 2
-                            
-                            # Get text size
-                            (text_w, text_h), baseline = cv2.getTextSize(
-                                class_name, font, font_scale, thickness
-                            )
-                            
-                            # Draw filled rectangle for text background
-                            cv2.rectangle(result_img, 
-                                        (x1, y1 - text_h - baseline - 5),
-                                        (x1 + text_w + 5, y1), 
-                                        (0, 255, 0), -1)
-                            
-                            # Draw text
-                            cv2.putText(result_img, class_name, 
-                                      (x1 + 2, y1 - baseline - 2),
-                                      font, font_scale, (0, 0, 0), thickness)
-                            
-                            print(f"Drew detection: {class_name} at ({x1},{y1},{x2},{y2}) with score {score:.2f}")
+                        # Extract coordinates and score
+                        x1, y1, x2, y2 = detection[:4]
+                        score = detection[4]
+                        
+                        # Handle different class ID formats
+                        if len(detection) > 5:
+                            class_id = int(detection[5])
+                        else:
+                            # If no class ID, try to infer or use default
+                            class_id = 0
+                        
+                        print(f"Detection {j}: bbox=({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}), score={score:.3f}, class_id={class_id}")
+                        
+                        # Convert coordinates to integers
+                        x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+                        
+                        # Ensure coordinates are valid
+                        h, w = result_img.shape[:2]
+                        x1 = max(0, min(x1, w-1))
+                        y1 = max(0, min(y1, h-1))
+                        x2 = max(x1+1, min(x2, w-1))
+                        y2 = max(y1+1, min(y2, h-1))
+                        
+                        # Draw bounding box
+                        cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        
+                        # Get class name
+                        if 0 <= class_id < len(class_names):
+                            class_name = class_names[class_id]
+                        else:
+                            class_name = f"Class_{class_id}"
+                        
+                        print(f"Drawing label: {class_name}")
+                        
+                        # Draw label
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.7
+                        thickness = 2
+                        
+                        # Get text size
+                        (text_w, text_h), baseline = cv2.getTextSize(
+                            class_name, font, font_scale, thickness
+                        )
+                        
+                        # Draw background rectangle
+                        cv2.rectangle(result_img, 
+                                    (x1, y1 - text_h - baseline - 5),
+                                    (x1 + text_w + 10, y1), 
+                                    (0, 255, 0), -1)
+                        
+                        # Draw text
+                        cv2.putText(result_img, class_name, 
+                                  (x1 + 5, y1 - baseline - 2),
+                                  font, font_scale, (0, 0, 0), thickness)
+            
+            if not detections_found:
+                print("No valid detections found - using fallback visualization")
+                # Fallback: use original method to at least show something
+                try:
+                    result_img = self.model.head.show_result(
+                        meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
+                    )
+                    print("Used fallback visualization")
+                except Exception as fallback_error:
+                    print(f"Fallback also failed: {fallback_error}")
                 
         except Exception as e:
             print(f"Visualization error: {e}")
-            print(f"Falling back to original image")
+            import traceback
+            traceback.print_exc()
             
+        print("=== END DEBUG INFO ===")
         return result_img
 
 def get_image_list(path):
