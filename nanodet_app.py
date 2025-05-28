@@ -49,7 +49,7 @@ class Predictor:
 
     def visualize(self, dets, meta, class_names):
         result_img = self.model.head.show_result(
-            meta["raw_img"][0], dets, class_names
+            meta["raw_img"][0], dets, class_names, show=False
         )
         #return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
         return result_img
