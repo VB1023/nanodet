@@ -47,64 +47,23 @@ class Predictor:
             results = self.model.inference(meta)
         return meta, results
 
-    def visualize(self, dets, meta, class_names, score_thres):
-        # Custom visualization without percentage scores
+       def visualize(self, dets, meta, class_names, score_thres):
+        damage_classes = {"scratch", "dent", "crack"}  # Customize this set based on your cfg.class_names
         result_img = meta["raw_img"][0].copy()
-        
-        # Debug: Print detection format to understand structure
-        print(f"Detection type: {type(dets)}")
-        print(f"Detection length: {len(dets) if hasattr(dets, '__len__') else 'No length'}")
-        
-        try:
-            # Handle NanoDet output format - typically a list of arrays per class
-            if isinstance(dets, (list, tuple)):
-                for class_id, class_detections in enumerate(dets):
-                    # Convert to numpy array if it's a tensor
-                    if hasattr(class_detections, 'cpu'):
-                        class_detections = class_detections.cpu().numpy()
-                    elif hasattr(class_detections, 'numpy'):
-                        class_detections = class_detections.numpy()
-                    
-                    # Check if there are detections for this class
-                    if hasattr(class_detections, 'shape') and class_detections.shape[0] > 0:
-                        for detection in class_detections:
-                            if len(detection) >= 5:
-                                x1, y1, x2, y2, score = detection[:5]
-                                
-                                # Only draw if score is above threshold
-                                if float(score) >= score_thres:
-                                    # Draw bounding box with thicker green line
-                                    cv2.rectangle(result_img, 
-                                                (int(x1), int(y1)), 
-                                                (int(x2), int(y2)), 
-                                                (0, 255, 0), 3)
-                                    
-                                    # Draw only class name (no percentage)
-                                    if class_id < len(class_names):
-                                        class_name = class_names[class_id]
-                                        
-                                        # Create text background for better visibility
-                                        label_y = max(int(y1) - 10, 15)
-                                        text_size = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-                                        
-                                        # Draw text background rectangle
-                                        cv2.rectangle(result_img,
-                                                    (int(x1), label_y - text_size[1] - 5),
-                                                    (int(x1) + text_size[0] + 5, label_y + 5),
-                                                    (0, 255, 0), -1)
-                                        
-                                        # Draw class name in black on green background
-                                        cv2.putText(result_img, class_name, 
-                                                  (int(x1) + 2, label_y), 
-                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-            
-        except Exception as e:
-            print(f"Visualization error: {e}")
-            # Fallback: return original image if visualization fails
-            return result_img
-        
-        return result_img
 
+        for det in dets:
+            x1, y1, x2, y2, score, label_idx = det
+            label_idx = int(label_idx)
+            class_name = class_names[label_idx]
+            if class_name not in damage_classes or score < score_thres:
+                continue
+
+            x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+            color = (255, 0, 0)  # Blue bounding box
+            cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(result_img, class_name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+        return result_img
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
