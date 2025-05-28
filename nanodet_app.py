@@ -48,110 +48,95 @@ class Predictor:
         return meta, results
 
     def visualize(self, dets, meta, class_names, score_thres):
-        result_img = meta["raw_img"][0].copy()
-        
-        try:
-            # Handle different detection result formats
-            if isinstance(dets, (list, tuple)):
-                # If dets is a list/tuple, process each detection
-                for det_group in dets:
-                    if hasattr(det_group, 'shape') and len(det_group.shape) > 0:
-                        self._draw_detections(result_img, det_group, class_names, score_thres)
-                    elif isinstance(det_group, (list, tuple)) and len(det_group) > 0:
-                        for det in det_group:
-                            if hasattr(det, 'shape') and len(det.shape) > 0:
-                                self._draw_detections(result_img, det, class_names, score_thres)
-            else:
-                # If dets is a single array/tensor
-                if hasattr(dets, 'shape') and len(dets.shape) > 0:
-                    self._draw_detections(result_img, dets, class_names, score_thres)
-                    
-        except Exception as e:
-            print(f"Custom visualization error: {e}")
-            print(f"Detection format: {type(dets)}")
-            if hasattr(dets, 'shape'):
-                print(f"Detection shape: {dets.shape}")
-            # Fallback to original method if custom fails
-            try:
-                result_img = self.model.head.show_result(
-                    meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
-                )
-            except:
-                pass
-        
-        return result_img
-    
-    def _draw_detections(self, img, detections, class_names, score_thres):
-        """Helper method to draw detections on image without percentages"""
+        """Custom visualization that shows only class names without percentages"""
         import numpy as np
         
-        # Convert to numpy if it's a tensor
-        if hasattr(detections, 'cpu'):
-            detections = detections.cpu().numpy()
-        elif hasattr(detections, 'numpy'):
-            detections = detections.numpy()
+        result_img = meta["raw_img"][0].copy()
         
-        if len(detections) == 0:
-            return
-            
-        # Ensure detections is 2D
-        if len(detections.shape) == 1:
-            detections = detections.reshape(1, -1)
-            
-        if detections.shape[1] < 5:  # Need at least bbox + score
-            return
-            
-        # Extract components
-        bboxes = detections[:, :4]
-        scores = detections[:, 4]
+        # Debug: Print detection info
+        print(f"Detection type: {type(dets)}")
+        if hasattr(dets, '__len__'):
+            print(f"Detection length: {len(dets)}")
         
-        # Handle labels - might be in column 5 or derived from other info
-        if detections.shape[1] > 5:
-            labels = detections[:, 5].astype(int)
-        else:
-            # If no label column, assume class 0 for now
-            labels = np.zeros(len(detections), dtype=int)
-        
-        # Filter by score threshold
-        valid_mask = scores >= score_thres
-        if not np.any(valid_mask):
-            return
+        try:
+            # NanoDet typically returns detections as a list of arrays
+            # Each array contains [x1, y1, x2, y2, score, class_id]
+            if isinstance(dets, (list, tuple)) and len(dets) > 0:
+                detection_array = dets[0]  # Usually first element contains the detections
+                
+                # Convert to numpy array if needed
+                if hasattr(detection_array, 'cpu'):
+                    detection_array = detection_array.cpu().numpy()
+                elif hasattr(detection_array, 'numpy'):
+                    detection_array = detection_array.numpy()
+                
+                print(f"Detection array shape: {detection_array.shape if hasattr(detection_array, 'shape') else 'No shape'}")
+                
+                if hasattr(detection_array, 'shape') and len(detection_array.shape) >= 2:
+                    # Filter detections by score threshold
+                    if detection_array.shape[1] >= 5:  # Has at least bbox + score
+                        scores = detection_array[:, 4]
+                        valid_detections = detection_array[scores >= score_thres]
+                        
+                        # Draw each valid detection
+                        for detection in valid_detections:
+                            x1, y1, x2, y2 = detection[:4].astype(int)
+                            score = detection[4]
+                            
+                            # Get class label
+                            if len(detection) > 5:
+                                class_id = int(detection[5])
+                            else:
+                                class_id = 0  # Default class
+                            
+                            # Ensure coordinates are within image bounds
+                            h, w = result_img.shape[:2]
+                            x1 = max(0, min(x1, w-1))
+                            y1 = max(0, min(y1, h-1))
+                            x2 = max(0, min(x2, w-1))
+                            y2 = max(0, min(y2, h-1))
+                            
+                            # Skip if invalid box
+                            if x2 <= x1 or y2 <= y1:
+                                continue
+                            
+                            # Draw bounding box
+                            cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                            
+                            # Get class name
+                            if 0 <= class_id < len(class_names):
+                                class_name = class_names[class_id]
+                            else:
+                                class_name = "Damage"
+                            
+                            # Draw label background and text
+                            font = cv2.FONT_HERSHEY_SIMPLEX
+                            font_scale = 0.7
+                            thickness = 2
+                            
+                            # Get text size
+                            (text_w, text_h), baseline = cv2.getTextSize(
+                                class_name, font, font_scale, thickness
+                            )
+                            
+                            # Draw filled rectangle for text background
+                            cv2.rectangle(result_img, 
+                                        (x1, y1 - text_h - baseline - 5),
+                                        (x1 + text_w + 5, y1), 
+                                        (0, 255, 0), -1)
+                            
+                            # Draw text
+                            cv2.putText(result_img, class_name, 
+                                      (x1 + 2, y1 - baseline - 2),
+                                      font, font_scale, (0, 0, 0), thickness)
+                            
+                            print(f"Drew detection: {class_name} at ({x1},{y1},{x2},{y2}) with score {score:.2f}")
+                
+        except Exception as e:
+            print(f"Visualization error: {e}")
+            print(f"Falling back to original image")
             
-        bboxes = bboxes[valid_mask]
-        scores = scores[valid_mask]
-        labels = labels[valid_mask]
-        
-        # Draw each detection
-        for bbox, score, label in zip(bboxes, scores, labels):
-            x1, y1, x2, y2 = bbox.astype(int)
-            
-            # Ensure coordinates are within image bounds
-            h, w = img.shape[:2]
-            x1, y1 = max(0, x1), max(0, y1)
-            x2, y2 = min(w-1, x2), min(h-1, y2)
-            
-            # Draw bounding box
-            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            
-            # Prepare label text (without percentage)
-            if 0 <= label < len(class_names):
-                label_text = class_names[label]
-            else:
-                label_text = f"Object"
-            
-            # Calculate text size
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.6
-            thickness = 2
-            (text_w, text_h), baseline = cv2.getTextSize(label_text, font, font_scale, thickness)
-            
-            # Draw label background
-            cv2.rectangle(img, (x1, y1 - text_h - baseline - 5), 
-                         (x1 + text_w, y1), (0, 255, 0), -1)
-            
-            # Draw label text
-            cv2.putText(img, label_text, (x1, y1 - baseline - 2), 
-                       font, font_scale, (0, 0, 0), thickness)
+        return result_img
 
 def get_image_list(path):
     image_names = []
