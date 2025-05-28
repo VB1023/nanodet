@@ -48,80 +48,31 @@ class Predictor:
         return meta, results
 
     def visualize(self, dets, meta, class_names, score_thres):
-        """Custom visualization that shows only class names without percentages"""
-        import numpy as np
-        
+        # Custom visualization without percentage scores
         result_img = meta["raw_img"][0].copy()
         
-        try:
-            # Convert tensor to numpy if needed
-            if hasattr(dets, 'cpu'):
-                dets = dets.cpu().numpy()
-            elif hasattr(dets, 'numpy'):
-                dets = dets.numpy()
-            
-            # Handle different detection formats
-            if len(dets.shape) >= 2 and dets.shape[1] >= 5:
-                # Filter by score threshold
-                scores = dets[:, 4]
-                valid_mask = scores >= score_thres
-                valid_detections = dets[valid_mask]
-                
-                for detection in valid_detections:
-                    # Extract coordinates and class info
-                    x1, y1, x2, y2 = detection[:4]
-                    score = detection[4]
-                    
-                    # Handle different class ID formats
-                    if len(detection) > 5:
-                        class_id = int(detection[5])
-                    else:
-                        class_id = 0
-                    
-                    # Convert coordinates to integers
-                    x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-                    
-                    # Ensure coordinates are valid
-                    h, w = result_img.shape[:2]
-                    x1 = max(0, min(x1, w-1))
-                    y1 = max(0, min(y1, h-1))
-                    x2 = max(x1+1, min(x2, w-1))
-                    y2 = max(y1+1, min(y2, h-1))
-                    
-                    # Draw bounding box
-                    cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    
-                    # Get class name (only show the class name, no percentage)
-                    if 0 <= class_id < len(class_names):
-                        class_name = class_names[class_id]
-                    else:
-                        class_name = f"Class_{class_id}"
-                    
-                    # Draw label with only class name
-                    font = cv2.FONT_HERSHEY_SIMPLEX
-                    font_scale = 0.7
-                    thickness = 2
-                    
-                    # Get text size
-                    (text_w, text_h), baseline = cv2.getTextSize(
-                        class_name, font, font_scale, thickness
-                    )
-                    
-                    # Draw background rectangle
-                    cv2.rectangle(result_img, 
-                                (x1, y1 - text_h - baseline - 5),
-                                (x1 + text_w + 10, y1), 
-                                (0, 255, 0), -1)
-                    
-                    # Draw text (only class name)
-                    cv2.putText(result_img, class_name, 
-                              (x1 + 5, y1 - baseline - 2),
-                              font, font_scale, (0, 0, 0), thickness)
-                
-        except Exception as e:
-            print(f"Visualization error: {e}")
-            # Just return the original image if there's an error
-            
+        for det in dets:
+            if len(det) > 0:
+                for bbox in det:
+                    if len(bbox) >= 5:  # bbox format: [x1, y1, x2, y2, score, class_id]
+                        x1, y1, x2, y2, score = bbox[:5]
+                        if len(bbox) > 5:
+                            class_id = int(bbox[5])
+                        else:
+                            class_id = 0
+                        
+                        if score >= score_thres:
+                            # Draw bounding box
+                            cv2.rectangle(result_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                            
+                            # Draw class name only (without percentage)
+                            if class_id < len(class_names):
+                                class_name = class_names[class_id]
+                                # Position label above the bounding box
+                                label_y = int(y1) - 10 if int(y1) - 10 > 10 else int(y1) + 20
+                                cv2.putText(result_img, class_name, (int(x1), label_y), 
+                                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        
         return result_img
 
 def get_image_list(path):
