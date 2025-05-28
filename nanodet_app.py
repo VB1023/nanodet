@@ -54,104 +54,72 @@ class Predictor:
         result_img = meta["raw_img"][0].copy()
         
         try:
-            detections_found = False
+            # Convert tensor to numpy if needed
+            if hasattr(dets, 'cpu'):
+                dets = dets.cpu().numpy()
+            elif hasattr(dets, 'numpy'):
+                dets = dets.numpy()
             
-            # Try multiple approaches to extract detections
-            detection_arrays = []
-            
-            # Approach 1: Direct array
-            if hasattr(dets, 'shape') and len(dets.shape) >= 2:
-                detection_arrays.append(dets)
-            
-            # Approach 2: List/tuple of arrays
-            elif isinstance(dets, (list, tuple)):
-                for i, item in enumerate(dets):
-                    if hasattr(item, 'shape') and len(item.shape) >= 2:
-                        detection_arrays.append(item)
-                    elif hasattr(item, '__len__') and len(item) > 0:
-                        # Convert to numpy if possible
-                        try:
-                            arr = np.array(item)
-                            if len(arr.shape) >= 2:
-                                detection_arrays.append(arr)
-                        except:
-                            pass
-            
-            # Process each detection array
-            for det_array in detection_arrays:
-                # Convert tensor to numpy if needed
-                if hasattr(det_array, 'cpu'):
-                    det_array = det_array.cpu().numpy()
-                elif hasattr(det_array, 'numpy'):
-                    det_array = det_array.numpy()
+            # Handle different detection formats
+            if len(dets.shape) >= 2 and dets.shape[1] >= 5:
+                # Filter by score threshold
+                scores = dets[:, 4]
+                valid_mask = scores >= score_thres
+                valid_detections = dets[valid_mask]
                 
-                if len(det_array.shape) >= 2 and det_array.shape[1] >= 5:
-                    # Filter by score threshold
-                    scores = det_array[:, 4]
-                    valid_mask = scores >= score_thres
-                    valid_detections = det_array[valid_mask]
+                for detection in valid_detections:
+                    # Extract coordinates and class info
+                    x1, y1, x2, y2 = detection[:4]
+                    score = detection[4]
                     
-                    for j, detection in enumerate(valid_detections):
-                        detections_found = True
-                        
-                        # Extract coordinates and score
-                        x1, y1, x2, y2 = detection[:4]
-                        score = detection[4]
-                        
-                        # Handle different class ID formats
-                        if len(detection) > 5:
-                            class_id = int(detection[5])
-                        else:
-                            # If no class ID, try to infer or use default
-                            class_id = 0
-                        
-                        # Convert coordinates to integers
-                        x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-                        
-                        # Ensure coordinates are valid
-                        h, w = result_img.shape[:2]
-                        x1 = max(0, min(x1, w-1))
-                        y1 = max(0, min(y1, h-1))
-                        x2 = max(x1+1, min(x2, w-1))
-                        y2 = max(y1+1, min(y2, h-1))
-                        
-                        # Draw bounding box
-                        cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        
-                        # Get class name (only show the class name, no percentage)
-                        if 0 <= class_id < len(class_names):
-                            class_name = class_names[class_id]
-                        else:
-                            class_name = f"Class_{class_id}"
-                        
-                        # Draw label with only class name
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        font_scale = 0.7
-                        thickness = 2
-                        
-                        # Get text size
-                        (text_w, text_h), baseline = cv2.getTextSize(
-                            class_name, font, font_scale, thickness
-                        )
-                        
-                        # Draw background rectangle
-                        cv2.rectangle(result_img, 
-                                    (x1, y1 - text_h - baseline - 5),
-                                    (x1 + text_w + 10, y1), 
-                                    (0, 255, 0), -1)
-                        
-                        # Draw text (only class name)
-                        cv2.putText(result_img, class_name, 
-                                  (x1 + 5, y1 - baseline - 2),
-                                  font, font_scale, (0, 0, 0), thickness)
-            
-            # Removed the "No damage detected" message - just return the original image
-            # if no detections are found
+                    # Handle different class ID formats
+                    if len(detection) > 5:
+                        class_id = int(detection[5])
+                    else:
+                        class_id = 0
+                    
+                    # Convert coordinates to integers
+                    x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+                    
+                    # Ensure coordinates are valid
+                    h, w = result_img.shape[:2]
+                    x1 = max(0, min(x1, w-1))
+                    y1 = max(0, min(y1, h-1))
+                    x2 = max(x1+1, min(x2, w-1))
+                    y2 = max(y1+1, min(y2, h-1))
+                    
+                    # Draw bounding box
+                    cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    
+                    # Get class name (only show the class name, no percentage)
+                    if 0 <= class_id < len(class_names):
+                        class_name = class_names[class_id]
+                    else:
+                        class_name = f"Class_{class_id}"
+                    
+                    # Draw label with only class name
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 0.7
+                    thickness = 2
+                    
+                    # Get text size
+                    (text_w, text_h), baseline = cv2.getTextSize(
+                        class_name, font, font_scale, thickness
+                    )
+                    
+                    # Draw background rectangle
+                    cv2.rectangle(result_img, 
+                                (x1, y1 - text_h - baseline - 5),
+                                (x1 + text_w + 10, y1), 
+                                (0, 255, 0), -1)
+                    
+                    # Draw text (only class name)
+                    cv2.putText(result_img, class_name, 
+                              (x1 + 5, y1 - baseline - 2),
+                              font, font_scale, (0, 0, 0), thickness)
                 
         except Exception as e:
             print(f"Visualization error: {e}")
-            import traceback
-            traceback.print_exc()
             # Just return the original image if there's an error
             
         return result_img
