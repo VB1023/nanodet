@@ -47,12 +47,13 @@ class Predictor:
             results = self.model.inference(meta)
         return meta, results
 
-    def visualize(self, dets, meta, class_names, score_thres):
+    def visualize(self, dets, meta, class_names, score_thres=0.0):
         result_img = self.model.head.show_result(
             meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
         )
         #return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
         return result_img
+
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
@@ -81,7 +82,7 @@ def run_inference_for_image(config_path, model_path, image_path, save_result=Fal
     result_images = []
     for image_name in image_names:
         meta, res = predictor.inference(image_name)
-        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)  # Ensures RGB format
+        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.0)  # Set threshold to 0.0 to show all detections
         
         if save_result:
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
