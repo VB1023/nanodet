@@ -47,9 +47,9 @@ class Predictor:
             results = self.model.inference(meta)
         return meta, results
 
-    def visualize(self, dets, meta, class_names, score_thres=0.0):
+    def visualize(self, dets, meta, class_names, score_thres):
         result_img = self.model.head.show_result(
-            meta["raw_img"][0], dets, class_names, show=False
+            meta["raw_img"][0], dets, class_names, , score_thres=score_thres, show=False
         )
         #return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
         return result_img
