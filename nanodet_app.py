@@ -82,7 +82,7 @@ def run_inference_for_image(config_path, model_path, image_path, save_result=Fal
     result_images = []
     for image_name in image_names:
         meta, res = predictor.inference(image_name)
-        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)  # Set threshold to 0.0 to show all detections
+        result_image = predictor.visualize(res[0], meta, cfg.class_names)  # Set threshold to 0.0 to show all detections
         
         if save_result:
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
