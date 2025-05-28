@@ -53,21 +53,6 @@ class Predictor:
         
         result_img = meta["raw_img"][0].copy()
         
-        # Comprehensive debugging
-        print(f"=== DETECTION DEBUG INFO ===")
-        print(f"Detection type: {type(dets)}")
-        print(f"Class names: {class_names}")
-        print(f"Score threshold: {score_thres}")
-        
-        if hasattr(dets, '__len__'):
-            print(f"Detection length: {len(dets)}")
-            
-        if isinstance(dets, (list, tuple)):
-            for i, item in enumerate(dets):
-                print(f"Item {i}: type={type(item)}, shape={getattr(item, 'shape', 'no shape')}")
-                if hasattr(item, 'shape') and len(item.shape) > 0:
-                    print(f"  Content sample: {item[:min(3, len(item))] if len(item) > 0 else 'empty'}")
-        
         try:
             detections_found = False
             
@@ -77,21 +62,18 @@ class Predictor:
             # Approach 1: Direct array
             if hasattr(dets, 'shape') and len(dets.shape) >= 2:
                 detection_arrays.append(dets)
-                print("Found direct detection array")
             
             # Approach 2: List/tuple of arrays
             elif isinstance(dets, (list, tuple)):
                 for i, item in enumerate(dets):
                     if hasattr(item, 'shape') and len(item.shape) >= 2:
                         detection_arrays.append(item)
-                        print(f"Found detection array at index {i}")
                     elif hasattr(item, '__len__') and len(item) > 0:
                         # Convert to numpy if possible
                         try:
                             arr = np.array(item)
                             if len(arr.shape) >= 2:
                                 detection_arrays.append(arr)
-                                print(f"Converted item {i} to detection array")
                         except:
                             pass
             
@@ -103,15 +85,11 @@ class Predictor:
                 elif hasattr(det_array, 'numpy'):
                     det_array = det_array.numpy()
                 
-                print(f"Processing array with shape: {det_array.shape}")
-                
                 if len(det_array.shape) >= 2 and det_array.shape[1] >= 5:
                     # Filter by score threshold
                     scores = det_array[:, 4]
                     valid_mask = scores >= score_thres
                     valid_detections = det_array[valid_mask]
-                    
-                    print(f"Valid detections after filtering: {len(valid_detections)}")
                     
                     for j, detection in enumerate(valid_detections):
                         detections_found = True
@@ -127,8 +105,6 @@ class Predictor:
                             # If no class ID, try to infer or use default
                             class_id = 0
                         
-                        print(f"Detection {j}: bbox=({x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}), score={score:.3f}, class_id={class_id}")
-                        
                         # Convert coordinates to integers
                         x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
                         
@@ -142,15 +118,13 @@ class Predictor:
                         # Draw bounding box
                         cv2.rectangle(result_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         
-                        # Get class name
+                        # Get class name (only show the class name, no percentage)
                         if 0 <= class_id < len(class_names):
                             class_name = class_names[class_id]
                         else:
                             class_name = f"Class_{class_id}"
                         
-                        print(f"Drawing label: {class_name}")
-                        
-                        # Draw label
+                        # Draw label with only class name
                         font = cv2.FONT_HERSHEY_SIMPLEX
                         font_scale = 0.7
                         thickness = 2
@@ -166,17 +140,13 @@ class Predictor:
                                     (x1 + text_w + 10, y1), 
                                     (0, 255, 0), -1)
                         
-                        # Draw text
+                        # Draw text (only class name)
                         cv2.putText(result_img, class_name, 
                                   (x1 + 5, y1 - baseline - 2),
                                   font, font_scale, (0, 0, 0), thickness)
             
-            if not detections_found:
-                print("No valid detections found - drawing simple message")
-                # Instead of fallback, draw a message on the image
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                text = "No damage detected"
-                cv2.putText(result_img, text, (50, 50), font, 1, (0, 255, 0), 2)
+            # Removed the "No damage detected" message - just return the original image
+            # if no detections are found
                 
         except Exception as e:
             print(f"Visualization error: {e}")
@@ -184,7 +154,6 @@ class Predictor:
             traceback.print_exc()
             # Just return the original image if there's an error
             
-        print("=== END DEBUG INFO ===")
         return result_img
 
 def get_image_list(path):
