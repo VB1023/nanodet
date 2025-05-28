@@ -2,7 +2,6 @@ import os
 import time
 import cv2
 import torch
-import numpy as np
 import streamlit as st
 from nanodet.data.batch_process import stack_batch_img
 from nanodet.data.collate import naive_collate
@@ -48,30 +47,12 @@ class Predictor:
             results = self.model.inference(meta)
         return meta, results
 
-    def visualize(self, dets, meta, class_names, score_thres):
-        import numpy as np
-        damage_classes = {"scratch", "dent", "crack"}
-        result_img = meta["raw_img"][0].copy()
-
-        if isinstance(dets, np.ndarray):
-            for det in dets:
-                if len(det) != 6:
-                    continue  # Skip malformed detections
-                x1, y1, x2, y2, score, label_idx = det
-                label_idx = int(label_idx)
-                class_name = class_names[label_idx]
-                if class_name not in damage_classes or score < score_thres:
-                    continue
-
-                x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-                color = (255, 0, 0)  # Blue bounding box
-                cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(result_img, class_name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-        else:
-            print("Unexpected detection result format:", type(dets))
-
+    def visualize(self, dets, meta, class_names):
+        result_img = self.model.head.show_result(
+            meta["raw_img"][0], dets, class_names, show=False
+        )
+        #return cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)  # Convert visualization result to RGB
         return result_img
-
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
@@ -100,7 +81,7 @@ def run_inference_for_image(config_path, model_path, image_path, save_result=Fal
     result_images = []
     for image_name in image_names:
         meta, res = predictor.inference(image_name)
-        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)  # Ensures RGB format
+        result_image = predictor.visualize(res[0], meta, cfg.class_names)  # Ensures RGB format
         
         if save_result:
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
@@ -120,23 +101,14 @@ def main():
     camera_image = st.camera_input("Take a picture")
 
     image_path = None
-        if image_file is not None:
-            image_path = "./temp_image.jpg"
-            try:
-                with open(image_path, "wb") as f:
-                    f.write(image_file.read())
-                except Exception as e:
-                st.error(f"Failed to save uploaded file: {e}")
-                image_path = None
-
-        elif camera_image is not None:
-            image_path = "./temp_camera_image.jpg"
-                try:
-                    with open(image_path, "wb") as f:
-                        f.write(camera_image.getbuffer())
-                    except Exception as e:
-                    st.error(f"Failed to save camera image: {e}")
-                    image_path = None
+    if image_file is not None:
+        image_path = "./temp_image.jpg"
+        with open(image_path, "wb") as f:
+            f.write(image_file.read())
+    elif camera_image is not None:
+        image_path = "./temp_camera_image.jpg"
+        with open(image_path, "wb") as f:
+            f.write(camera_image.getbuffer())
 
     save_result = st.checkbox("Save Inference Results", value=False)
 
