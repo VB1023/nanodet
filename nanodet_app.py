@@ -48,22 +48,29 @@ class Predictor:
         return meta, results
 
     def visualize(self, dets, meta, class_names, score_thres):
-        damage_classes = {"scratch", "dent", "crack"}  # Customize this set based on your cfg.class_names
+        import numpy as np
+        damage_classes = {"scratch", "dent", "crack"}
         result_img = meta["raw_img"][0].copy()
 
-        for det in dets:
-            x1, y1, x2, y2, score, label_idx = det
-            label_idx = int(label_idx)
-            class_name = class_names[label_idx]
-            if class_name not in damage_classes or score < score_thres:
-                continue
+        if isinstance(dets, np.ndarray):
+            for det in dets:
+                if len(det) != 6:
+                    continue  # Skip malformed detections
+                x1, y1, x2, y2, score, label_idx = det
+                label_idx = int(label_idx)
+                class_name = class_names[label_idx]
+                if class_name not in damage_classes or score < score_thres:
+                    continue
 
-            x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
-            color = (255, 0, 0)  # Blue bounding box
-            cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(result_img, class_name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+                color = (255, 0, 0)  # Blue bounding box
+                cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(result_img, class_name, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        else:
+            print("Unexpected detection result format:", type(dets))
 
         return result_img
+
 def get_image_list(path):
     image_names = []
     if os.path.isdir(path):
