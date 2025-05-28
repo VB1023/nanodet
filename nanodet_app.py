@@ -48,21 +48,110 @@ class Predictor:
         return meta, results
 
     def visualize(self, dets, meta, class_names, score_thres):
-        # Use the original model visualization but try to modify the output
+        result_img = meta["raw_img"][0].copy()
+        
         try:
-            # First, try using the original visualization method
-            result_img = self.model.head.show_result(
-                meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
-            )
-            
-            # If successful, try to remove percentage text from the image
-            # This is a workaround - we'll use the original method but post-process
-            return result_img
-            
+            # Handle different detection result formats
+            if isinstance(dets, (list, tuple)):
+                # If dets is a list/tuple, process each detection
+                for det_group in dets:
+                    if hasattr(det_group, 'shape') and len(det_group.shape) > 0:
+                        self._draw_detections(result_img, det_group, class_names, score_thres)
+                    elif isinstance(det_group, (list, tuple)) and len(det_group) > 0:
+                        for det in det_group:
+                            if hasattr(det, 'shape') and len(det.shape) > 0:
+                                self._draw_detections(result_img, det, class_names, score_thres)
+            else:
+                # If dets is a single array/tensor
+                if hasattr(dets, 'shape') and len(dets.shape) > 0:
+                    self._draw_detections(result_img, dets, class_names, score_thres)
+                    
         except Exception as e:
-            # Fallback: return original image if visualization fails
-            print(f"Visualization error: {e}")
-            return meta["raw_img"][0].copy()
+            print(f"Custom visualization error: {e}")
+            print(f"Detection format: {type(dets)}")
+            if hasattr(dets, 'shape'):
+                print(f"Detection shape: {dets.shape}")
+            # Fallback to original method if custom fails
+            try:
+                result_img = self.model.head.show_result(
+                    meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
+                )
+            except:
+                pass
+        
+        return result_img
+    
+    def _draw_detections(self, img, detections, class_names, score_thres):
+        """Helper method to draw detections on image without percentages"""
+        import numpy as np
+        
+        # Convert to numpy if it's a tensor
+        if hasattr(detections, 'cpu'):
+            detections = detections.cpu().numpy()
+        elif hasattr(detections, 'numpy'):
+            detections = detections.numpy()
+        
+        if len(detections) == 0:
+            return
+            
+        # Ensure detections is 2D
+        if len(detections.shape) == 1:
+            detections = detections.reshape(1, -1)
+            
+        if detections.shape[1] < 5:  # Need at least bbox + score
+            return
+            
+        # Extract components
+        bboxes = detections[:, :4]
+        scores = detections[:, 4]
+        
+        # Handle labels - might be in column 5 or derived from other info
+        if detections.shape[1] > 5:
+            labels = detections[:, 5].astype(int)
+        else:
+            # If no label column, assume class 0 for now
+            labels = np.zeros(len(detections), dtype=int)
+        
+        # Filter by score threshold
+        valid_mask = scores >= score_thres
+        if not np.any(valid_mask):
+            return
+            
+        bboxes = bboxes[valid_mask]
+        scores = scores[valid_mask]
+        labels = labels[valid_mask]
+        
+        # Draw each detection
+        for bbox, score, label in zip(bboxes, scores, labels):
+            x1, y1, x2, y2 = bbox.astype(int)
+            
+            # Ensure coordinates are within image bounds
+            h, w = img.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w-1, x2), min(h-1, y2)
+            
+            # Draw bounding box
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            
+            # Prepare label text (without percentage)
+            if 0 <= label < len(class_names):
+                label_text = class_names[label]
+            else:
+                label_text = f"Object"
+            
+            # Calculate text size
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.6
+            thickness = 2
+            (text_w, text_h), baseline = cv2.getTextSize(label_text, font, font_scale, thickness)
+            
+            # Draw label background
+            cv2.rectangle(img, (x1, y1 - text_h - baseline - 5), 
+                         (x1 + text_w, y1), (0, 255, 0), -1)
+            
+            # Draw label text
+            cv2.putText(img, label_text, (x1, y1 - baseline - 2), 
+                       font, font_scale, (0, 0, 0), thickness)
 
 def get_image_list(path):
     image_names = []
@@ -92,7 +181,7 @@ def run_inference_for_image(config_path, model_path, image_path, save_result=Fal
     result_images = []
     for image_name in image_names:
         meta, res = predictor.inference(image_name)
-        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.0)  # Ensures RGB format
+        result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)  # Ensures RGB format
         
         if save_result:
             save_file_name = os.path.join(save_folder, os.path.basename(image_name))
