@@ -2,6 +2,7 @@ import os
 import time
 import cv2
 import torch
+import numpy as np
 import streamlit as st
 from nanodet.data.batch_process import stack_batch_img
 from nanodet.data.collate import naive_collate
@@ -119,14 +120,23 @@ def main():
     camera_image = st.camera_input("Take a picture")
 
     image_path = None
-    if image_file is not None:
-        image_path = "./temp_image.jpg"
-        with open(image_path, "wb") as f:
-            f.write(image_file.read())
-    elif camera_image is not None:
-        image_path = "./temp_camera_image.jpg"
-        with open(image_path, "wb") as f:
-            f.write(camera_image.getbuffer())
+        if image_file is not None:
+            image_path = "./temp_image.jpg"
+            try:
+                with open(image_path, "wb") as f:
+                    f.write(image_file.read())
+                except Exception as e:
+                st.error(f"Failed to save uploaded file: {e}")
+                image_path = None
+
+        elif camera_image is not None:
+            image_path = "./temp_camera_image.jpg"
+                try:
+                    with open(image_path, "wb") as f:
+                        f.write(camera_image.getbuffer())
+                    except Exception as e:
+                    st.error(f"Failed to save camera image: {e}")
+                    image_path = None
 
     save_result = st.checkbox("Save Inference Results", value=False)
 
