@@ -47,7 +47,7 @@ class Predictor:
             results = self.model.inference(meta)
         return meta, results
 
-       def visualize(self, dets, meta, class_names, score_thres):
+    def visualize(self, dets, meta, class_names, score_thres):
         damage_classes = {"scratch", "dent", "crack"}  # Customize this set based on your cfg.class_names
         result_img = meta["raw_img"][0].copy()
 
