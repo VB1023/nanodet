@@ -51,27 +51,43 @@ class Predictor:
         # Custom visualization without percentage scores
         result_img = meta["raw_img"][0].copy()
         
-        for det in dets:
-            if len(det) > 0:
-                for bbox in det:
-                    if len(bbox) >= 5:  # bbox format: [x1, y1, x2, y2, score, class_id]
-                        x1, y1, x2, y2, score = bbox[:5]
-                        if len(bbox) > 5:
-                            class_id = int(bbox[5])
-                        else:
-                            class_id = 0
-                        
-                        if score >= score_thres:
-                            # Draw bounding box
-                            cv2.rectangle(result_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                            
-                            # Draw class name only (without percentage)
-                            if class_id < len(class_names):
-                                class_name = class_names[class_id]
-                                # Position label above the bounding box
-                                label_y = int(y1) - 10 if int(y1) - 10 > 10 else int(y1) + 20
-                                cv2.putText(result_img, class_name, (int(x1), label_y), 
-                                          cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        # Handle different detection result formats
+        if isinstance(dets, list) and len(dets) > 0:
+            # If dets is a list of detections per class
+            for class_id, class_dets in enumerate(dets):
+                if hasattr(class_dets, 'shape') and len(class_dets.shape) > 0:
+                    # If it's a numpy array or tensor
+                    if len(class_dets) > 0:
+                        for detection in class_dets:
+                            if len(detection) >= 5:
+                                x1, y1, x2, y2, score = detection[:5]
+                                if score >= score_thres:
+                                    # Draw bounding box
+                                    cv2.rectangle(result_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                                    
+                                    # Draw class name only (without percentage)
+                                    if class_id < len(class_names):
+                                        class_name = class_names[class_id]
+                                        # Position label above the bounding box
+                                        label_y = int(y1) - 10 if int(y1) - 10 > 10 else int(y1) + 20
+                                        cv2.putText(result_img, class_name, (int(x1), label_y), 
+                                                  cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                elif isinstance(class_dets, (list, tuple)) and len(class_dets) > 0:
+                    # If it's a list/tuple of detections
+                    for detection in class_dets:
+                        if len(detection) >= 5:
+                            x1, y1, x2, y2, score = detection[:5]
+                            if score >= score_thres:
+                                # Draw bounding box
+                                cv2.rectangle(result_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
+                                
+                                # Draw class name only (without percentage)
+                                if class_id < len(class_names):
+                                    class_name = class_names[class_id]
+                                    # Position label above the bounding box
+                                    label_y = int(y1) - 10 if int(y1) - 10 > 10 else int(y1) + 20
+                                    cv2.putText(result_img, class_name, (int(x1), label_y), 
+                                              cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         
         return result_img
 
