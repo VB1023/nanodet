@@ -172,20 +172,17 @@ class Predictor:
                                   font, font_scale, (0, 0, 0), thickness)
             
             if not detections_found:
-                print("No valid detections found - using fallback visualization")
-                # Fallback: use original method to at least show something
-                try:
-                    result_img = self.model.head.show_result(
-                        meta["raw_img"][0], dets, class_names, score_thres=score_thres, show=False
-                    )
-                    print("Used fallback visualization")
-                except Exception as fallback_error:
-                    print(f"Fallback also failed: {fallback_error}")
+                print("No valid detections found - drawing simple message")
+                # Instead of fallback, draw a message on the image
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                text = "No damage detected"
+                cv2.putText(result_img, text, (50, 50), font, 1, (0, 255, 0), 2)
                 
         except Exception as e:
             print(f"Visualization error: {e}")
             import traceback
             traceback.print_exc()
+            # Just return the original image if there's an error
             
         print("=== END DEBUG INFO ===")
         return result_img
